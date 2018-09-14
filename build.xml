@@ -1,40 +1,57 @@
-<project name="laravel-jenkins" default="build" basedir=".">
-    <property name="basedir" value="${project.basedir}" />
-    <property name="sourcedir" value="${basedir}/src"/>
+<project name="Test" default="build" basedir=".">
+    <property name="output" location="${basedir}/buildOutput/"/>
 
-    <target name="build" depends="composer,copy-env-file,phpunit" />
+    <target name="init">
+        <mkdir dir="${output}"/>
+        <mkdir dir="${output}/phpcs/"/>
+        <mkdir dir="${output}/pdepend/"/>
+    </target>
 
-    <target name="composer" depends="composer-clean,composer-install,composer-update" />
-    <target name="composer-check">
-        <condition property="composer.lock.exist.in.gitignore">
-            <resourcecontains resource="${sourcedir}/.gitignore" substring="composer.lock" />
-        </condition>
+    <target name="build" depends="init, test, phpcs, phpmd, phpcpd, pdepend">
     </target>
-    <target name="composer-clean" depends="composer-check" if="composer.lock.exist.in.gitignore">
-        <delete file="${sourcedir}/composer.lock" />
-    </target>
-    <target name="composer-install" depends="composer-check" unless="composer.lock.exist.in.gitignore">
-        <echo>Installing dependencies</echo>
-        <exec executable="composer" failonerror="true">
-            <arg value="install" />
-            <arg value="-d=src" />
-        </exec>
-    </target>
-    <target name="composer-update" depends="composer-check" if="composer.lock.exist.in.gitignore">
-        <echo>Updating dependencies</echo>
-        <exec executable="composer" failonerror="true">
-            <arg value="update" />
-            <arg value="-d=src" />
+
+    <target name="test">
+        <exec executable="phpunit" failonerror="true">
+            <arg line="--coverage-clover ${output}/CodeCoverage/clover.xml
+				--coverage-html ${output}/CodeCoverage/
+				."/>
         </exec>
     </target>
 
-    <target name="copy-env-file">
-        <copy file="${basedir}/deploy/laravel/.env" todir="${sourcedir}/"/>
+    <target name="phpcs">
+        <exec executable="phpcs">
+            <arg line="--report=checkstyle
+              			--report-file=${output}/phpcs/checkstyle.xml
+              			--standard=Zend
+              			${basedir}" />
+        </exec>
     </target>
 
-    <target name="phpunit">
-        <exec dir="${sourcedir}" executable="phpunit" failonerror="true">
-            <arg line="--colors tests" />
+    <target name="phpmd">
+        <exec executable="phpmd">
+            <arg line="
+				 . xml codesize,unusedcode,naming,design --reportfile ${output}/messdetector.xml --exclude Tests/
+			" />
+        </exec>
+    </target>
+
+    <target name="phpcpd">
+        <exec executable="phpcpd">
+            <arg line="
+				 --log-pmd ${output}/phpcpd.xml .
+			" />
+        </exec>
+    </target>
+
+    <target name="pdepend">
+        <exec executable="pdepend">
+            <arg line="
+				--jdepend-xml=${output}/pdepend/jdepend.xml
+				--jdepend-chart=${output}/pdepend/dependencies.svg
+				--overview-pyramid=${output}/pdepend/overview-pyramid.svg
+				--ignore=Tests/
+				.
+			" />
         </exec>
     </target>
 </project>
